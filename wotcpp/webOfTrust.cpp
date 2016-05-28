@@ -142,7 +142,7 @@ namespace libwot {
 
 
   Node* WebOfTrust::addNode() {
-    Node *node = new Node(this);
+    Node *node = new Node(this, mNodes.size());
     mNodes.push_back(node);
     return node;
   }
@@ -198,7 +198,7 @@ namespace libwot {
     for(vector<Node*>::iterator itNode = mNodes.begin(); itNode != mNodes.end(); itNode++) {
       vector<Node*> links = ((Node*)*itNode)->getLinks();
       for(vector<Node*>::iterator itLink = links.begin(); itLink != links.end(); itLink++) {
-        cout << "    " << i << " -> " << getNodeIndex((Node*)*itLink) << "" << endl;
+        cout << "    " << i << " -> " << ((Node*)*itLink)->getId() << "" << endl;
       }
       i++;
     }
@@ -259,12 +259,12 @@ namespace libwot {
     // Mark as checked the linking nodes at this level
     for (uint32_t j = 0; j < mNodes.at(m1)->getNbLinks(); j++) {
       Log() << "Match " << mNodes.at(m1)->getLinkAt(j) << " -> " << m1;
-      wotChecked[getNodeIndex(mNodes.at(m1)->getLinkAt(j))] = true;
+      wotChecked[mNodes.at(m1)->getLinkAt(j)->getId()] = true;
     }
     if (distance < distanceMax) {
       // Look one level deeper
       for (uint32_t j = 0; j < mNodes.at(m1)->getNbLinks(); j++) {
-        checkMatches(getNodeIndex(mNodes.at(m1)->getLinkAt(j)), distance + 1, distanceMax, wotChecked);
+        checkMatches(mNodes.at(m1)->getLinkAt(j)->getId(), distance + 1, distanceMax, wotChecked);
       }
     }
   }

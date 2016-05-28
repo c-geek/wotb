@@ -13,13 +13,14 @@ namespace libwot {
 
     public :
 
-      Node(WebOfTrust* wot);
+      Node(WebOfTrust* wot, uint32_t id);
       ~Node();
 
       bool isEnabled() {return mEnabled;};
       uint32_t getNbLinks() {return mCert.size();};
       Node* getLinkAt(uint32_t index) {return mCert.at(index);};
       uint32_t getNbIssued() {return mNbIssued;};
+      uint32_t getId() { return mId; };
 
 
       Node* setEnabled(bool enable);
@@ -39,6 +40,7 @@ namespace libwot {
       bool mEnabled;
       std::vector<Node*> mCert;
       uint32_t mNbIssued;
+      uint32_t mId;
   };
 }
 

@@ -10,11 +10,12 @@ namespace libwot {
 
   using namespace std;
 
-  Node::Node(WebOfTrust* wot) {
+  Node::Node(WebOfTrust* wot, uint32_t id) {
     mWot = wot;
     mEnabled = true;
     mNbIssued = 0;
     mCert = vector<Node*>();
+    mId = id;
   }
 
 

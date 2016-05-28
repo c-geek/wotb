@@ -27,7 +27,7 @@ namespace libwot {
             vertex_t v1 = vertex(i, graph);
             for (int j=0; j<node->getNbLinks(); j++)
             {
-                uint32_t certIndex = wot->getNodeIndex(node->getLinkAt(j));
+                uint32_t certIndex = node->getLinkAt(j)->getId();
                 vertex_t v2 = vertex(certIndex, graph);
                 add_edge(v2, v1, graph);
             }

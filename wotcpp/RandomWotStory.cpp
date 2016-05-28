@@ -15,7 +15,7 @@ namespace libwot {
     using namespace std;
     using namespace boost;
 
-    uint32_t NB_YEARS = 160;
+    uint32_t NB_YEARS = 3;
     uint32_t NB_TURN_PER_YEARS = 12;
     uint32_t NB_TURNS = NB_YEARS*NB_TURN_PER_YEARS;
 
