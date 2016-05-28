@@ -47,7 +47,8 @@ namespace libwot {
 
     uint32_t Story::addIdentity() {
         uint32_t  nextIndex = mCurrentWot->getNbNodes();
-        mCurrentWot->addNode();
+        Node* node = mCurrentWot->addNode();
+        node->setEnabled(false);
         mNodesLatestCerts.push_back(0);
         return nextIndex;
     }
@@ -118,15 +119,15 @@ namespace libwot {
 
         for (auto it = mCheckedNodes.begin(); it != mCheckedNodes.end(); it++) {
             bool resolve = resolveMembership(*it);
-            auto isMember = find(mCurrentMembers.begin(), mCurrentMembers.end(), *it);
+            auto isMember = mCurrentWot->getNodeAt(*it)->isEnabled();
             // If he was a member but not anymore
-            if (isMember != mCurrentMembers.end() && !resolve) {
-                mCurrentMembers.erase(isMember);
+            if (isMember && !resolve) {
+                mCurrentMembers.erase(find(mCurrentMembers.begin(), mCurrentMembers.end(), *it));
                 mCurrentWot->getNodeAt(*it)->setEnabled(false);
                 cout << *it << " : Left community" << endl;
             }
                 // If he was not a member but now he is
-            else if (isMember == mCurrentMembers.end() && resolve) {
+            else if (!isMember && resolve) {
                 mCurrentMembers.push_back(*it);
                 mCurrentWot->getNodeAt(*it)->setEnabled(true);
                 cout << *it << " : Joined community" << endl;
