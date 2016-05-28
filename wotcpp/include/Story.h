@@ -43,7 +43,7 @@ namespace libwot {
         std::vector<uint32_t> mCurrentMembers;
         std::vector<uint32_t> mNodesLatestCerts;
         std::map< Link, uint32_t > mTimestamps;
-        std::vector<uint32_t> mCheckedNodes;
+        std::vector<uint32_t> mArrivals;
     };
 }
 

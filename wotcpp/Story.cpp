@@ -50,6 +50,7 @@ namespace libwot {
         Node* node = mCurrentWot->addNode();
         node->setEnabled(false);
         mNodesLatestCerts.push_back(0);
+        mArrivals.push_back(mTurn);
         return nextIndex;
     }
 
@@ -60,18 +61,10 @@ namespace libwot {
         }
 
         if (mCurrentWot->getNodeAt(from)->addLinkTo(to)) {
-            addToCheckedNodes(to);
             mTimestamps[Link(from, to)] = mTurn;
         }
         else {
             //cout << from << " -> " << to << " : Could not add link" << endl;;
-        }
-    }
-
-    void Story::addToCheckedNodes(uint32_t nodeIndex) {
-
-        if (find (mCheckedNodes.begin(), mCheckedNodes.end(), nodeIndex) == mCheckedNodes.end()){
-            mCheckedNodes.push_back(nodeIndex);
         }
     }
 
@@ -93,13 +86,13 @@ namespace libwot {
     bool Story::resolveMembership(uint32_t identity) {
         Node* node = mCurrentWot->getNodeAt(identity);
         if (node->getNbLinks() < mSigQty) {
-            cout << identity << " : not enough links, not a member anymore" << endl;
+            cout << identity << " : not enough links" << endl;
             return false;
         }
 
         if (mCurrentWot->computeDistance(identity, sentriesRule(mCurrentMembers.size()+1), mStepsMax, mXpercent)
                 .isOutdistanced) {
-            cout << identity << " : outdistanced, not a member anymore" << endl;
+            cout << identity << " : outdistanced" << endl;
             return false;
         }
         return true;
@@ -110,30 +103,31 @@ namespace libwot {
             if (it->second + mSigValidity < mTurn) {
                 mCurrentWot->getNodeAt(it->first.first)->removeLinkTo(it->first.second);
                 mTimestamps.erase(it++);
-                addToCheckedNodes(it->first.second);
             }
             else {
                 ++it;
             }
         }
 
-        for (auto it = mCheckedNodes.begin(); it != mCheckedNodes.end(); it++) {
-            bool resolve = resolveMembership(*it);
-            auto isMember = mCurrentWot->getNodeAt(*it)->isEnabled();
-            // If he was a member but not anymore
-            if (isMember && !resolve) {
-                mCurrentMembers.erase(find(mCurrentMembers.begin(), mCurrentMembers.end(), *it));
-                mCurrentWot->getNodeAt(*it)->setEnabled(false);
-                cout << *it << " : Left community" << endl;
-            }
-                // If he was not a member but now he is
-            else if (!isMember && resolve) {
-                mCurrentMembers.push_back(*it);
-                mCurrentWot->getNodeAt(*it)->setEnabled(true);
-                cout << *it << " : Joined community" << endl;
+        for (auto it = mArrivals.begin(); it != mArrivals.end(); it++) {
+            if ((mTurn - *it) % 6 == 0) {
+                uint32_t index = it - mArrivals.begin();
+                bool resolve = resolveMembership(index);
+                auto isMember = mCurrentWot->getNodeAt(index)->isEnabled();
+                // If he was a member but not anymore
+                if (isMember && !resolve) {
+                    mCurrentMembers.erase(find(mCurrentMembers.begin(), mCurrentMembers.end(), *it));
+                    mCurrentWot->getNodeAt(index)->setEnabled(false);
+                    cout << index << " : Left community" << endl;
+                }
+                    // If he was not a member but now he is
+                else if (!isMember && resolve) {
+                    mCurrentMembers.push_back(index);
+                    mCurrentWot->getNodeAt(index)->setEnabled(true);
+                    cout << index << " : Joined community" << endl;
+                }
             }
         }
-        mCheckedNodes.clear();
         mStats.addWot(mCurrentWot);
         mTurn++;
         cout << "New turn : " << mTurn << " : " << mCurrentMembers.size()+1
