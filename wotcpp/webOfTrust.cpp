@@ -152,6 +152,10 @@ namespace libwot {
     mNodes.pop_back();
   }
 
+    uint32_t WebOfTrust::getNbNodes() {
+    return mNodes.size();
+  }
+
 
   uint32_t WebOfTrust::getNodeIndex(Node* node) {
     vector<Node*>::iterator it = find(mNodes.begin(), mNodes.end(), node);

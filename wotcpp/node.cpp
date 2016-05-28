@@ -1,4 +1,4 @@
-#include <node.h>
+#include "include/node.h"
 #include <cstdlib>
 #include <algorithm>
 #include <iostream>
@@ -32,6 +32,9 @@ namespace libwot {
     if(mNbIssued >= mWot->getMaxCert() ||
       to == this ||
       to->hasLinkFrom(this)) {
+        /*cout << "Error : " << (mNbIssued >= mWot->getMaxCert()) << " ; "
+                                           << (to == this) << " ; "
+                                                    << to->hasLinkFrom(this) << endl;*/
         return false;
     }
 
