@@ -129,7 +129,7 @@ namespace libwot {
                 cout << *it << " : Joined community" << endl;
             }
         }
-
+        mCheckedNodes.clear();
         mStats.addWot(mCurrentWot);
         mTurn++;
         cout << "New turn : " << mTurn << " : " << mCurrentMembers.size()+1
