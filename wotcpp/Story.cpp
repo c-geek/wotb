@@ -129,6 +129,7 @@ namespace libwot {
             }
         }
         mStats.addWot(mCurrentWot);
+        mStats.addData(mCurrentMembers.size(), mCurrentWot->getNbNodes());
         mTurn++;
         cout << "New turn : " << mTurn << " : " << mCurrentMembers.size()+1
                     << " members, " << mCurrentWot->getNbNodes()+1 << " identities" << endl;

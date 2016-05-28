@@ -21,9 +21,12 @@ namespace libwot {
       ~Stats();
 
       void addWot(WebOfTrust* wot);
+      void addData(uint32_t nbMembers, uint32_t nbIdentities);
+      void renderStats();
 
     private :
-
+      std::vector<uint32_t> mNbMembers;
+      std::vector<uint32_t> mNbIdentities;
       std::vector< Graph > mGraphs;
   };
 }

@@ -11,4 +11,5 @@ int main(int argc, char **argv) {
   RandomWotStory story;
 
   story.run();
+  story.display();
 }
