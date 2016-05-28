@@ -37,6 +37,7 @@ namespace libwot {
         for (uint32_t i=0; i<nbMembers; i++) {
             if (resolveMembership(i)) {
                 mCurrentMembers.push_back(i);
+                mCurrentWot->getNodeAt(i)->setEnabled(true);
             }
             else {
                 cout << i << " : Could not join on initialization" << endl;
@@ -121,11 +122,13 @@ namespace libwot {
             // If he was a member but not anymore
             if (isMember != mCurrentMembers.end() && !resolve) {
                 mCurrentMembers.erase(isMember);
+                mCurrentWot->getNodeAt(*it)->setEnabled(false);
                 cout << *it << " : Left community" << endl;
             }
                 // If he was not a member but now he is
             else if (isMember == mCurrentMembers.end() && resolve) {
                 mCurrentMembers.push_back(*it);
+                mCurrentWot->getNodeAt(*it)->setEnabled(true);
                 cout << *it << " : Joined community" << endl;
             }
         }
