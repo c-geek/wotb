@@ -257,16 +257,22 @@ namespace libwot {
 
   void WebOfTrust::checkMatches(uint32_t m1, uint32_t distance, uint32_t distanceMax, bool *wotChecked) {
     // Mark as checked the linking nodes at this level
-    for (uint32_t j = 0; j < mNodes.at(m1)->getNbLinks(); j++) {
-      Log() << "Match " << mNodes.at(m1)->getLinkAt(j) << " -> " << m1;
-      wotChecked[mNodes.at(m1)->getLinkAt(j)->getId()] = true;
-    }
-    if (distance < distanceMax) {
-      // Look one level deeper
+    #pragma omp parallel
+    {
+      #pragma omp for
       for (uint32_t j = 0; j < mNodes.at(m1)->getNbLinks(); j++) {
-        checkMatches(mNodes.at(m1)->getLinkAt(j)->getId(), distance + 1, distanceMax, wotChecked);
+        Log() << "Match " << mNodes.at(m1)->getLinkAt(j) << " -> " << m1;
+        wotChecked[mNodes.at(m1)->getLinkAt(j)->getId()] = true;
+      }
+      if (distance < distanceMax) {
+        // Look one level deeper
+        #pragma omp for
+        for (uint32_t j = 0; j < mNodes.at(m1)->getNbLinks(); j++) {
+          checkMatches(mNodes.at(m1)->getLinkAt(j)->getId(), distance + 1, distanceMax, wotChecked);
+        }
       }
     }
+
   }
 
 }
