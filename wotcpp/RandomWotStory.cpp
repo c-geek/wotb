@@ -15,7 +15,7 @@ namespace libwot {
     using namespace std;
     using namespace boost;
 
-    uint32_t NB_YEARS = 1;
+    uint32_t NB_YEARS = 160;
     uint32_t NB_TURN_PER_YEARS = 12;
     uint32_t NB_TURNS = NB_YEARS*NB_TURN_PER_YEARS;
 
@@ -30,12 +30,13 @@ namespace libwot {
     void RandomWotStory::run() {
         boost::random::minstd_rand rng;         // produces randomness out of thin air
         // see pseudo-random number generators
+        boost::random::uniform_int_distribution<> proba(0, 100);
 
         initialize(4);
         for (uint32_t t=0; t<NB_TURNS; t++) {
             boost::random::uniform_int_distribution<> nodes(0, mCurrentWot->getNbNodes()-1);
-            for (auto it=mCurrentMembers.begin(); it != mCurrentMembers.end(); it++){
-                if (t % 3 == 0) {
+            for (auto it=mCurrentMembers.begin(); it != mCurrentMembers.end(); it++) {
+                if (proba(rng) <= 33) {
                     uint32_t identity = addIdentity();
                     addLink(*it, identity);
                 }
