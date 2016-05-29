@@ -15,7 +15,7 @@ namespace libwot {
     using namespace std;
     using namespace boost;
 
-    uint32_t NB_YEARS = 1;
+    uint32_t NB_YEARS = 4;
     uint32_t NB_TURN_PER_YEARS = 12;
     uint32_t NB_TURNS = NB_YEARS*NB_TURN_PER_YEARS;
 
@@ -33,12 +33,18 @@ namespace libwot {
         boost::random::uniform_int_distribution<> proba(0, 100);
 
         initialize(4);
+        for (int i=0; i<4; i++) {
+            mInvitations.push_back(0);
+        }
+
         for (uint32_t t=0; t<NB_TURNS; t++) {
             boost::random::uniform_int_distribution<> nodes(0, mCurrentWot->getNbNodes()-1);
             for (auto it=mCurrentMembers.begin(); it != mCurrentMembers.end(); it++) {
-                if (proba(rng) <= 33) {
+                if (proba(rng) <= 33 && mInvitations[*it] < 16) {
                     uint32_t identity = addIdentity();
+                    mInvitations.push_back(0);
                     addLink(*it, identity);
+                    mInvitations[*it] += 1;
                 }
                 for (uint32_t i=0; i < (uint32_t)(mSigStock/mSigValidity); i++) {
                     addLink(*it, (uint32_t)(nodes(rng)));

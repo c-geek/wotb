@@ -17,6 +17,8 @@ namespace libwot {
         void run();
 
         void display();
+    private:
+        std::vector<uint32_t> mInvitations;
     };
 }
 
