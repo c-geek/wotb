@@ -29,6 +29,10 @@ namespace libwot {
   }
 
 
+  bool Node::hasStockLeft() {
+    return mNbIssued < mWot->getMaxCert();
+  }
+
   bool Node::addLinkTo(Node* to) {
     if(mNbIssued >= mWot->getMaxCert() ||
       to == this ||

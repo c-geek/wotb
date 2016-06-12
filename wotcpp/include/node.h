@@ -26,6 +26,7 @@ namespace libwot {
       Node* setEnabled(bool enable);
       std::vector<Node*> getLinks() {return mCert;};
 
+      bool hasStockLeft();
       bool addLinkTo(uint32_t to);
       bool addLinkTo(Node* to);
       bool hasLinkTo(uint32_t to);
