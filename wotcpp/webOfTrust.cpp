@@ -242,14 +242,13 @@ namespace libwot {
     return result;
   }
 
-
   uint32_t WebOfTrust::checkMatches(uint32_t m1, int distance, uint32_t distanceMax, bool *wotChecked, uint32_t nbSuccessToBeOK, uint32_t nbSuccessYet) {
     if (nbSuccessYet >= nbSuccessToBeOK) {
       return nbSuccessYet;
     }
     // Mark as checked the linking nodes at this level
     for (uint32_t j = 0; j < mNodes.at(m1)->getNbLinks(); j++) {
-      Log() << "Match " << mNodes.at(m1)->getLinkAt(j) << " -> " << m1;
+      Log() << "Match " << mNodes.at(m1)->getLinkAt(j)->getId() << " -> " << m1 << " = OK";
       uint32_t id = mNodes.at(m1)->getLinkAt(j)->getId();
       if (!wotChecked[id]) {
         wotChecked[id] = true;
