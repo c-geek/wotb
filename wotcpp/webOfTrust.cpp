@@ -221,23 +221,18 @@ namespace libwot {
     }
     // The member to check is not considered a sentry
     sentries[member] = false;
-    wotMatches[member] = true;
-    result.nbSuccess = 0;
-    findMatches(member, k_max, wotMatches);
     for (uint32_t i = 0; i < mNodes.size(); i++) {
       if (sentries[i]) {
         result.nbSentries++;
-        if (wotMatches[i]) {
-          Log() << "Sentry " << i << ": OK";
-          result.nbSuccess++;
-        } else {
-          Log() << "Sentry " << i << ": KO";
-        }
-      } else {
-        Log() << "NON-Sentry "  << i;
       }
     }
-    result.isOutdistanced = result.nbSuccess < result.nbSentries;
+    wotMatches[member] = true;
+    result.nbSuccess = 0;
+    int32_t nbSuccessToBeOK = x_percent * result.nbSentries;
+    if (k_max >= 1) {
+      result.nbSuccess = checkMatches(member, 1, k_max, wotMatches, nbSuccessToBeOK, 0);
+    }
+    result.isOutdistanced = result.nbSuccess < nbSuccessToBeOK;
     delete[] wotMatches;
     delete[] sentries;
 
@@ -248,25 +243,29 @@ namespace libwot {
   }
 
 
-  void WebOfTrust::findMatches(uint32_t m1, uint32_t k_max, bool *wotChecked) {
-    if (k_max >= 1) {
-      checkMatches(m1, 1, k_max, wotChecked);
+  uint32_t WebOfTrust::checkMatches(uint32_t m1, int distance, uint32_t distanceMax, bool *wotChecked, uint32_t nbSuccessToBeOK, uint32_t nbSuccessYet) {
+    if (nbSuccessYet >= nbSuccessToBeOK) {
+      return nbSuccessYet;
     }
-  }
-
-
-  void WebOfTrust::checkMatches(uint32_t m1, uint32_t distance, uint32_t distanceMax, bool *wotChecked) {
     // Mark as checked the linking nodes at this level
     for (uint32_t j = 0; j < mNodes.at(m1)->getNbLinks(); j++) {
       Log() << "Match " << mNodes.at(m1)->getLinkAt(j) << " -> " << m1;
-      wotChecked[mNodes.at(m1)->getLinkAt(j)->getId()] = true;
+      uint32_t id = mNodes.at(m1)->getLinkAt(j)->getId();
+      if (!wotChecked[id]) {
+        wotChecked[id] = true;
+        nbSuccessYet++;
+        if (nbSuccessYet >= nbSuccessToBeOK) {
+          return nbSuccessYet;
+        }
+      }
     }
     if (distance < distanceMax) {
       // Look one level deeper
       for (uint32_t j = 0; j < mNodes.at(m1)->getNbLinks(); j++) {
-        checkMatches(mNodes.at(m1)->getLinkAt(j)->getId(), distance + 1, distanceMax, wotChecked);
+        nbSuccessYet = checkMatches(mNodes.at(m1)->getLinkAt(j)->getId(), distance + 1, distanceMax, wotChecked, nbSuccessToBeOK, nbSuccessYet);
       }
     }
+    return nbSuccessYet;
   }
 
 }
