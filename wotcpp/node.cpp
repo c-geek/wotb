@@ -74,10 +74,7 @@ namespace libwot {
 
 
   bool Node::hasLinkFrom(Node* from) {
-    if(find(mCert.begin(), mCert.end(), from) == mCert.end()) {
-      return false;
-    }
-    return true;
+    return find(mCert.begin(), mCert.end(), from) != mCert.end();
   }
 
 
