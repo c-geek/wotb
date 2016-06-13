@@ -8,7 +8,26 @@
 #include "Stats.h"
 
 typedef std::pair<uint32_t, uint32_t> Link;
-typedef std::pair<std::vector<uint32_t>, int32_t> Identity;
+
+struct Issuer {
+    uint32_t willIssue = 0;
+};
+
+struct Identity {
+    std::vector<uint32_t> certs;
+    uint32_t wotid;
+    uint32_t created_on = 0;
+    bool hasBeenMember;
+    bool isMember;
+
+    bool isGoodCandidate(uint32_t idtyPeremption, uint32_t currentTime) {
+        return !hasBeenMember && !isExpired(idtyPeremption, currentTime);
+    }
+
+    bool isExpired(uint32_t idtyPeremption, uint32_t currentTime) {
+        return currentTime > created_on + idtyPeremption;
+    }
+};
 
 namespace libwot {
 
@@ -16,7 +35,7 @@ namespace libwot {
     public:
         Story(uint32_t sigPeriod, uint32_t sigStock, uint32_t sigValidity,
               uint32_t sigQty, float xpercent, uint32_t stepsMax, uint32_t sigPerTurnPerMember,
-              float newMembersPercent);
+              float newMembersPercent, uint32_t idtyPeremption);
 
         virtual ~Story();
 
@@ -36,6 +55,7 @@ namespace libwot {
         void addToCheckedNodes(uint32_t nodeIndex);
 
         float mNewMembersPercent;
+        uint32_t mIdtyPeremption;
         uint32_t mSigPerTurnPerMember;
         uint32_t mSigPeriod;
         uint32_t mSigStock;

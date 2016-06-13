@@ -228,7 +228,7 @@ namespace libwot {
     }
     wotMatches[member] = true;
     result.nbSuccess = 0;
-    int32_t nbSuccessToBeOK = x_percent * result.nbSentries;
+    int32_t nbSuccessToBeOK = (int) ceil(x_percent * result.nbSentries);
     if (k_max >= 1) {
       result.nbSuccess = checkMatches(member, 1, k_max, wotMatches, nbSuccessToBeOK, 0);
     }

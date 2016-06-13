@@ -16,22 +16,23 @@ namespace libwot {
     using namespace std;
     using namespace boost;
 
-    uint32_t REQUIRED_SIG_TO_BE_A_MEMBER = 2;
-    uint32_t DISTANCE_MAX = 3;
-    float PERCENT_OF_SENTRIES_TO_REACH = 1;
+    uint32_t REQUIRED_SIG_TO_BE_A_MEMBER = 5;
+    uint32_t DISTANCE_MAX = 5;
+    float PERCENT_OF_SENTRIES_TO_REACH = 0.9;
 
-    uint32_t NB_YEARS = 3;
+    uint32_t NB_YEARS = 8;
     uint32_t NB_TURN_PER_YEARS = 12;
     uint32_t NB_TURNS = NB_YEARS * NB_TURN_PER_YEARS;
 
-    uint32_t SIG_STOCK = 36;
-    uint32_t SIG_VALIDITY_DURATION = 12;
-    uint32_t SIG_PER_TURN_PER_MEMBER = floor(SIG_STOCK / NB_TURN_PER_YEARS); // The stock per year
-    float NEW_IDENTITIES_PERCENT_PER_TURN = 0.3;
+    uint32_t SIG_STOCK = 24;
+    uint32_t SIG_VALIDITY_DURATION = 900;
+    uint32_t SIG_PER_TURN_PER_MEMBER = floor(SIG_STOCK / NB_TURN_PER_YEARS);
+    uint32_t IDENTITY_PEREMPTION = NB_TURNS; // Infinity
+    float NEW_IDENTITIES_STOCK = 0.5; // We always have a X percent of new identities available
 
     RandomWotStory::RandomWotStory()
             : Story(0, SIG_STOCK, SIG_VALIDITY_DURATION, REQUIRED_SIG_TO_BE_A_MEMBER, PERCENT_OF_SENTRIES_TO_REACH,
-                    DISTANCE_MAX, SIG_PER_TURN_PER_MEMBER, NEW_IDENTITIES_PERCENT_PER_TURN) {
+                    DISTANCE_MAX, SIG_PER_TURN_PER_MEMBER, NEW_IDENTITIES_STOCK, IDENTITY_PEREMPTION) {
     }
 
     RandomWotStory::~RandomWotStory() {
@@ -49,7 +50,7 @@ namespace libwot {
         // see pseudo-random number generators
 
         // Create the initial WoT
-        initialize(4);
+        initialize(mSigQty + 1);
         mCurrentWot->showTable();
 
         // Now make the WoT live
