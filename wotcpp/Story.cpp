@@ -1,22 +1,16 @@
 #include "include/Story.h"
 
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/linear_congruential.hpp>
-#include <boost/random/uniform_real.hpp>
-#include <boost/random/variate_generator.hpp>
-
 #include <iostream>
 namespace libwot {
 
     using namespace std;
 
-    boost::random::minstd_rand rng;         // produces randomness out of thin air
-
     Story::Story(uint32_t sigPeriod, uint32_t sigStock, uint32_t sigValidity, uint32_t sigQty, float xpercent,
                  uint32_t stepsMax, uint32_t sigPerTurnPerMember, float newMembersPercent, uint32_t idtyPeremption)
         : mSigPeriod(sigPeriod), mSigStock(sigStock),
           mSigValidity(sigValidity), mSigQty(sigQty), mXpercent(xpercent), mStepsMax(stepsMax),
-          mSigPerTurnPerMember(sigPerTurnPerMember), mNewMembersPercent(newMembersPercent), mIdtyPeremption(idtyPeremption)
+          mNewMembersPercent(newMembersPercent), mIdtyPeremption(idtyPeremption),
+          mPool(idtyPeremption, mSigValidity, sigPerTurnPerMember)
     {
         mStats = Stats();
         mCurrentWot = NULL;
@@ -27,32 +21,19 @@ namespace libwot {
 
     }
 
-    struct SortableIdentity {
-        int nbCerts = 0;
-        uint32_t idtyID;
-    };
-    struct lessCertQuantity {
-        inline bool operator() (const SortableIdentity& struct1, const SortableIdentity& struct2) {
-            return (struct1.nbCerts < struct2.nbCerts);
-        }
-    };
-
     void Story::initialize(uint32_t nbMembers) {
         mCurrentWot = new WebOfTrust(mSigStock);
         for (uint32_t i=0; i<nbMembers; i++) {
             mCurrentWot->addNode();
-            mIdentities.push_back(i);
-            mPoolCerts[i].wotid = i;
-            mPoolCerts[i].hasBeenMember = true;
-            mPoolCerts[i].isMember = true;
+            mPool.addNewIdentity();
         }
 
         for (uint32_t i=0; i<nbMembers; i++) {
             for (uint32_t j=0; j<nbMembers; j++) {
                 if (i != j) {
                     mCurrentWot->getNodeAt(i)->addLinkTo(j);
-                    mTimestamps[Link(i, j)] = 0;
-                    mPoolCerts[j].certs.push_back(i);
+                    Link link(i, j);
+                    mPool.newLink(link);
                 }
             }
         }
@@ -61,6 +42,7 @@ namespace libwot {
             if (resolveMembership(i)) {
                 mCurrentMembers.push_back(i);
                 mCurrentWot->getNodeAt(i)->setEnabled(true);
+                mPool.setMember(i, i);
             }
             else {
                 cout << i << " : Could not join on initialization" << endl;
@@ -85,7 +67,7 @@ namespace libwot {
         }
 
         if (mCurrentWot->getNodeAt(from)->addLinkTo(to)) {
-            mTimestamps[Link(from, to)] = mTurn;
+//            mTimestamps[Link(from, to)] = mTurn;
             mNodesLatestCerts[from] = mTurn;
         }
         else {
@@ -164,25 +146,23 @@ namespace libwot {
 //        }
         mStats.addWot(mCurrentWot);
         mTurn++;
+        mPool.nextTurn();
         cout << endl;
         cout << "New turn : T = " << mTurn << " : " << mCurrentMembers.size()
-                    << " members, " << mIdentities.size() << " identities" << endl << endl;
+                    << " members, " << mPool.size() << " identities" << endl << endl;
 
         /****************************************************
          *  BEFORE TIME INCREMENTS, WE TAKE INTO ACCOUNT WOT VARIATIONS
          ***************************************************/
 
         // Check that each identity is maintained in the WoT by the links
-        for (auto it = mIdentities.begin(); it != mIdentities.end(); it++){
-            Identity idty = mPoolCerts[*it];
-            if (mCurrentWot->getNodeAt(idty.wotid)->isEnabled()) {
-                if (!hasEnoughLinks(idty.wotid)) {
-//        mCurrentWot->showTable();
-                    mCurrentMembers.erase(find(mCurrentMembers.begin(), mCurrentMembers.end(), *it));
-                    mCurrentWot->getNodeAt(idty.wotid)->setEnabled(false);
-                    mPoolCerts[*it].isMember = false;
-                    mPoolCerts[*it].hasBeenMember = true;
-                    cout << idty.wotid << " : Left community" << endl;
+        for (uint32_t i = 0; i < mCurrentWot->getSize(); i++){
+            if (mCurrentWot->getNodeAt(i)->isEnabled()) {
+                if (!hasEnoughLinks(i)) {
+                    mCurrentMembers.erase(find(mCurrentMembers.begin(), mCurrentMembers.end(), i));
+                    mCurrentWot->getNodeAt(i)->setEnabled(false);
+                    mPool.kick(i);
+                    cout << i << " : Left community" << endl;
                 }
             }
         }
@@ -193,102 +173,43 @@ namespace libwot {
 
         // New identities show up
         int requiredIdtyStock = (int) ceil(mNewMembersPercent * mCurrentWot->getSize());
-        int currentStock = 0;
-        for (auto it = mIdentities.begin(); it != mIdentities.end(); it++){
-            if (mPoolCerts[*it].isGoodCandidate(mIdtyPeremption, mTurn)) {
-                currentStock++;
-            }
-        }
-        int qtyToCreate = requiredIdtyStock - currentStock;
-        for (uint32_t i = 0; i < qtyToCreate; i++) {
-            uint32_t idty = mIdentities.size();
-            mIdentities.push_back(idty);
-            mPoolCerts[idty].wotid = 0; // Has to be changed when added to the WoT
-            mPoolCerts[idty].created_on = mTurn;
-//            cout << idty << " : new identity showing up" << endl;
-        }
+        mPool.increaseIdtyStockUpTo(requiredIdtyStock);
 
         // Delete expired certifications
-        for(auto it = mTimestamps.cbegin(); it != mTimestamps.cend();) {
-            if (it->second + mSigValidity < mTurn) {
-                uint32_t receiverID = it->first.first;
-                uint32_t issuerID = it->first.second;
-                Identity receiver = mPoolCerts[receiverID];
-                Identity issuer = mPoolCerts[issuerID];
-                if (receiver.hasBeenMember && issuer.hasBeenMember) {
-                    if (mCurrentWot->getNodeAt(issuer.wotid)->hasLinkTo(receiver.wotid)) {
+        for(auto it = mPool.mExpiredCerts.cbegin(); it != mPool.mExpiredCerts.cend(); it++) {
+            Identity receiver = mPool.getIdentity(it->toID);
+            Identity issuer = mPool.getIdentity(it->fromID);
+            if (receiver.hasBeenMember && issuer.hasBeenMember) {
+                if (mCurrentWot->getNodeAt(it->mLink.first)->hasLinkTo(it->mLink.second)) {
 //                        cout << "Expired cert " << issuer.wotid << " -> " << receiver.wotid << endl;
-                        mCurrentWot->getNodeAt(issuer.wotid)->removeLinkTo(receiver.wotid);
-                    }
-                }
-                mTimestamps.erase(it++);
-                vector<uint32_t >::iterator cert = find(receiver.certs.begin(), receiver.certs.end(), issuerID);
-                if (cert != receiver.certs.end()) {
-                    receiver.certs.erase(cert);
+                    mCurrentWot->getNodeAt(issuer.wotid)->removeLinkTo(receiver.wotid);
                 }
             }
-            else {
-                ++it;
-            }
         }
-
-        // Get a vector of identities ordered by quantity of certs, DESC
-        vector<SortableIdentity> sortables;
-        for (auto it = mIdentities.begin(); it != mIdentities.end(); it++){
-            SortableIdentity idty;
-            idty.idtyID = *it;
-            idty.nbCerts = mPoolCerts[*it].certs.size();
-            sortables.push_back(idty);
-        }
-        sort(sortables.begin(), sortables.end(), lessCertQuantity());
 
         // Add new certifications to the pool
-        int nbCertsAdded = 0;
-        for (auto it = mCurrentMembers.begin(); it != mCurrentMembers.end(); it++){
-            Identity idty = mPoolCerts[*it];
-            uint32_t member = idty.wotid;
-            boost::random::uniform_int_distribution<> identities(0, member);
-            for (uint32_t i = 0; i < mSigPerTurnPerMember; i++) {
-                bool validIdenty = false;
-                int maxTries = 3, tries = 0;
-                uint32_t randomIdty;
-                do {
-                    SortableIdentity sortable = sortables[(uint32_t)(identities(rng))];
-                    randomIdty = sortable.idtyID;
-                    validIdenty = randomIdty != member && !mPoolCerts[randomIdty].isExpired(mIdtyPeremption, mTurn);
-                    tries++;
-                } while (!validIdenty && tries <= maxTries);
-//                cout << "Try cert " << member << " -> " << randomIdty << endl;
-                bool notFound = find(mPoolCerts[randomIdty].certs.begin(), mPoolCerts[randomIdty].certs.end(), member) == mPoolCerts[randomIdty].certs.end();
-                if (notFound && validIdenty) {
-                    mPoolCerts[randomIdty].certs.push_back(member);
-                    random_shuffle(mPoolCerts[randomIdty].certs.begin(), mPoolCerts[randomIdty].certs.end());
-                    // We remember the date of each link
-//                    cout << "New cert " << member << " -> " << randomIdty << endl;
-                    mTimestamps[Link(member, randomIdty)] = mTurn;
-                    nbCertsAdded++;
-                }
-            }
-        }
+        int nbCertsAdded = mPool.produceNewCerts();
         cout << "New certs +" << nbCertsAdded << endl;
 
         // See which newcomers can join
         std::map< uint32_t, Identity > mNewcomers;
         std::map< uint32_t, Issuer > mIssuers;
-        for (auto it = mIdentities.begin(); it != mIdentities.end(); it++){
-            mIssuers[*it].willIssue = 0;
+        for (auto it = mPool.mNewIdentities.begin(); it != mPool.mNewIdentities.end(); it++){
+            mIssuers[it->id].willIssue = 0;
         }
-        for (auto it = mIdentities.begin(); it != mIdentities.end(); it++){
-            uint32_t idty = *it;
-            int32_t wotID = mPoolCerts[idty].wotid;
-            if (mPoolCerts[idty].isGoodCandidate(mIdtyPeremption, mTurn)) {
+        for (auto it = mPool.mNewIdentities.begin(); it != mPool.mNewIdentities.end(); it++){
+            uint32_t idty = it->id;
+            Identity newcomer = mPool.getIdentity(idty);
+            int32_t wotID = newcomer.wotid;
+            if (newcomer.isGoodCandidate(mIdtyPeremption, mTurn)) {
                 // Try to add it...
                 Node* temp = mCurrentWot->addNode();
                 std::vector<uint32_t > certsFromMembers;
-                for (auto itc = mPoolCerts[idty].certs.begin(); itc != mPoolCerts[idty].certs.end(); itc++){
+                for (auto itc = newcomer.certs.begin(); itc != newcomer.certs.end(); itc++){
                     uint32_t issuer = *itc;
-                    uint32_t issuerWOTID = mPoolCerts[issuer].wotid;
-                    if (mPoolCerts[issuer].isMember) {
+                    Identity issuerIdty = mPool.getIdentity(issuer);
+                    uint32_t issuerWOTID = issuerIdty.wotid;
+                    if (issuerIdty.isMember) {
                         uint32_t willIssue = mIssuers[issuer].willIssue;
 //                        cout << issuer << " already issued " << mCurrentWot->getNodeAt(issuerWOTID)->getNbIssued() << " and plans to have " << willIssue << " more" << endl;
                         if (mCurrentWot->getNodeAt(issuerWOTID)->getNbIssued() + willIssue < mSigStock) {
@@ -307,10 +228,11 @@ namespace libwot {
                 }
                 // Remove temp data
                 for (auto itc = certsFromMembers.begin(); itc != certsFromMembers.end(); itc++){
-                    if (mCurrentWot->getNodeAt(mPoolCerts[*itc].wotid)->hasLinkTo(temp->getId())) {
-                        mCurrentWot->getNodeAt(mPoolCerts[*itc].wotid)->removeLinkTo(temp->getId());
+                    uint32_t issuerWOTID = mPool.getIdentity(*itc).wotid;
+                    if (mCurrentWot->getNodeAt(issuerWOTID)->hasLinkTo(temp->getId())) {
+                        mCurrentWot->getNodeAt(issuerWOTID)->removeLinkTo(temp->getId());
                     } else {
-                        cout << "Could not undo temporary link " << (*itc) << " (" << mPoolCerts[*itc].wotid << ") -> " << temp->getId() << endl;
+                        cout << "Could not undo temporary link " << (*itc) << " (" << issuerWOTID << ") -> " << temp->getId() << endl;
                     }
                 }
                 mCurrentWot->removeNode();
@@ -318,35 +240,13 @@ namespace libwot {
         }
 
         // See which certifications from members to members can be taken
-
-//        cout << ">>>>>>>>>>>>> BEFORE GETTING INNER CERTS <<<<<<<<<<<<<<<<<";
-
-//        mCurrentWot->showTable();
-
-        for (auto it = sortables.begin(); it != sortables.end(); it++){
-            SortableIdentity sortable = (*it);
-//            cout <<  " Try to get certs for " << sortable.idtyID << endl;
-            uint32_t idty = sortable.idtyID;
-            int32_t wotID = mPoolCerts[idty].wotid;
-            if (mPoolCerts[idty].isMember) {
-                // Try to add certifications..
-                for (auto itc = mPoolCerts[idty].certs.begin(); itc != mPoolCerts[idty].certs.end(); itc++){
-                    uint32_t issuer = *itc;
-                    uint32_t issuerWoTID = mPoolCerts[issuer].wotid;
-                    bool notSameIdty = issuerWoTID != wotID;
-                    if (notSameIdty && mPoolCerts[issuer].isMember && mCurrentWot->getNodeAt(issuerWoTID)->isEnabled() && !mCurrentWot->getNodeAt(issuerWoTID)->hasLinkTo(wotID)) {
-//                        cout << "priority add " << issuer << " ==> "  << wotID  << " ; "<< notSameIdty << " ; " << (issuer < mCurrentWot->getSize()) << " ; " << !mCurrentWot->getNodeAt(issuer)->hasLinkTo(wotID) << endl;
-                        if (mCurrentWot->getNodeAt(issuerWoTID)->getNbIssued() + mIssuers[issuer].willIssue < mSigStock) {
-                            mCurrentWot->getNodeAt(issuerWoTID)->addLinkTo(wotID);
-                        }
-                    }
-                }
+        vector<Cert> newInnerLinks = mPool.produceNewInnerLinks();
+        for (auto link : newInnerLinks) {
+            //                        cout << "priority add " << issuer << " ==> "  << wotID  << " ; "<< notSameIdty << " ; " << (issuer < mCurrentWot->getSize()) << " ; " << !mCurrentWot->getNodeAt(issuer)->hasLinkTo(wotID) << endl;
+            if (mCurrentWot->getNodeAt(link.mLink.first)->getNbIssued() + mIssuers[link.fromID].willIssue < mSigStock) {
+                mCurrentWot->getNodeAt(link.mLink.first)->addLinkTo(link.mLink.second);
             }
         }
-
-//        cout << ">>>>>>>>>>>>> AFTER GETTING INNER CERTS <<<<<<<<<<<<<<<<<";
-
-//        mCurrentWot->showTable();
 
         // Effectively add the newcomers
         for (auto it = mNewcomers.begin(); it != mNewcomers.end(); it++){
@@ -354,11 +254,11 @@ namespace libwot {
             // Add it...
             uint32_t idtyID = (*it).first;
             Identity idty = (*it).second;
-            Node*newcomer = mCurrentWot->addNode();
+            Node* newcomer = mCurrentWot->addNode();
             int nbLinks = 0;
             for (auto itc = idty.certs.begin(); itc != idty.certs.end(); itc++){
                 uint32_t issuer = *itc;
-                uint32_t issuerWOTID = mPoolCerts[issuer].wotid;
+                uint32_t issuerWOTID = mPool.getIdentity(issuer).wotid;
 //                if (issuer < mCurrentWot->getSize() && mCurrentWot->getNodeAt(issuer)->isEnabled()) {
 //                    if (mCurrentWot->getNodeAt(issuer)->hasStockLeft()) {
 //                        mCurrentWot->getNodeAt(issuer)->addLinkTo(newcomer);
@@ -369,9 +269,7 @@ namespace libwot {
                 nbLinks++;
             }
 //            cout << newcomer->getId() << "(id = " << idtyID << ") : Joined community with " << nbLinks << " links" << endl;
-            mPoolCerts[idtyID].wotid = newcomer->getId();
-            mPoolCerts[idtyID].isMember = true;
-            mPoolCerts[idtyID].hasBeenMember = true;
+            mPool.setMember(idtyID, newcomer->getId());
             mCurrentMembers.push_back(idtyID);
         }
 

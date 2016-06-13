@@ -20,7 +20,7 @@ namespace libwot {
     uint32_t DISTANCE_MAX = 5;
     float PERCENT_OF_SENTRIES_TO_REACH = 0.9;
 
-    uint32_t NB_YEARS = 8;
+    uint32_t NB_YEARS = 1;
     uint32_t NB_TURN_PER_YEARS = 12;
     uint32_t NB_TURNS = NB_YEARS * NB_TURN_PER_YEARS;
 
@@ -46,9 +46,6 @@ namespace libwot {
     }
 
     void RandomWotStory::run() {
-        boost::random::minstd_rand rng;         // produces randomness out of thin air
-        // see pseudo-random number generators
-
         // Create the initial WoT
         initialize(mSigQty + 1);
         mCurrentWot->showTable();
